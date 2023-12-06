@@ -1,5 +1,5 @@
-/// @file	GCS.h
-/// @brief	Interface definition for the various Ground Control System
+/// @file   GCS.h
+/// @brief  Interface definition for the various Ground Control System
 // protocols.
 #pragma once
 
@@ -182,8 +182,8 @@ private:
 };
 
 ///
-/// @class	GCS_MAVLINK
-/// @brief	MAVLink transport control class
+/// @class  GCS_MAVLINK
+/// @brief  MAVLink transport control class
 ///
 class GCS_MAVLINK
 {
@@ -1047,6 +1047,10 @@ private:
     bool signing_enabled(void) const;
     static void save_signing_timestamp(bool force_save_now);
 
+    // link quality helper functions.
+    void update_link_quality(int pktReceived, int pktLost);
+    void calc_link_quality();
+
 #if HAL_MAVLINK_INTERVALS_FROM_FILES_ENABLED
     // structure containing default intervals read from files for this
     // link:
@@ -1098,6 +1102,37 @@ private:
     // true if we should NOT do MAVLink on this port (usually because
     // someone's doing SERIAL_CONTROL over mavlink)
     bool _locked;
+
+    // Window Size of 3 Seconds / Elements
+    //  Each calculation is done every second thus 3 elements = 3 seconds.
+    //  Every 200ms a new element is added to the buffer (200ms * 15 = 3 seconds).
+    static const uint8_t WINDOW_SIZE = 15;
+    // Link quality is scaled from 0 to 255.
+    static const uint8_t LINK_SCALE = 255;
+    // Max number of no packets before link quality is set to 0. (200ms * 25 = 5 seconds)
+    // Hysteresis account for timer already running for 200ms in between messages (200ms * 5 = 1 second)
+    static const uint8_t MAX_CONSEC_NO_PACKETS = 25;
+    // Max time of no packets before link quality is set to 0.
+    static const int MAX_PACKET_GAP = 5000;
+    // timer to track when to calculate the link quality.
+    uint32_t last_uplink_calc;
+    uint32_t last_uplink_parse;
+    uint32_t last_received_time = 0;
+    // number of consecutive no packets.
+    uint16_t consec_no_packets;
+    // flag to track if link quality has been initialized.
+    //bool link_quality_initialized = false;
+    // Circular buffer to store historical link quality data.
+    std::vector<float> link_buffer;
+    // Index to track the current position in the circular buffer.
+    size_t link_idx;
+    // Current link quality.
+    uint8_t _link_quality;
+    // Track the number of packets received and lost including prev calculation.
+    int pktReceived = 0;
+    int pktLost = 0;
+    int prevPktReceived = 0;
+    int prevPktLost = 0;
 };
 
 /// @class GCS
